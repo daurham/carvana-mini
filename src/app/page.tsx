@@ -1,103 +1,110 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import CarListings from "@/components/CarListings";
+import FilterBar from "@/components/FilterBar";
+import CarModal from "@/components/CarModal";
+import { Car } from "@/types/car";
+
+// Fetch car data from dummy API
+const fetchCars = async (): Promise<Car[]> => {
+  const response = await fetch("https://dummyjson.com/products");
+  const data = await response.json();
+  // console.log(data);
+  
+  // Transform the products into car-like data
+  return data.products.map((product: any, index: number) => ({
+    id: product.id,
+    make: `Brand ${product.id % 10 + 1}`,
+    model: product.title.split(" ").slice(0, 2).join(" "),
+    year: 2020 + (product.id % 5),
+    price: product.price * 1000,
+    mileage: Math.floor(Math.random() * 100000) + 10000,
+    image: product.thumbnail,
+    description: product.description,
+    category: product.category,
+    rating: product.rating,
+    stock: product.stock,
+  }));
+};
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedCar, setSelectedCar] = useState<Car | null>(null);
+  const [filters, setFilters] = useState({
+    make: "",
+    priceRange: "",
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const { data: cars, isLoading, error } = useQuery({
+    queryKey: ["cars"],
+    queryFn: fetchCars,
+  });
+
+  const filteredCars = cars?.filter((car) => {
+    if (filters.make && car.make !== filters.make) return false;
+    if (filters.priceRange) {
+      const [min, max] = filters.priceRange.split("-").map(Number);
+      if (max && car.price > max * 1000) return false;
+      if (min && car.price < min * 1000) return false;
+    }
+    return true;
+  });
+
+  const availableMakes = cars
+    ? [...new Set(cars.map((car) => car.make))].sort()
+    : [];
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Error loading car listings
+          </h1>
+          <p className="text-gray-600">
+            Please try refreshing the page or check your connection.
+          </p>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Carvana Listings Viewer
+            </h1>
+            <div className="text-sm text-gray-500">
+              Powered by React Query
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <FilterBar
+          filters={filters}
+          setFilters={setFilters}
+          availableMakes={availableMakes}
+        />
+        
+        <CarListings
+          cars={filteredCars || []}
+          isLoading={isLoading}
+          onCarSelect={setSelectedCar}
+        />
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+      {selectedCar && (
+        <CarModal
+          car={selectedCar}
+          onClose={() => setSelectedCar(null)}
+        />
+      )}
     </div>
   );
 }
